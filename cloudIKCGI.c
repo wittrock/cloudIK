@@ -9,7 +9,7 @@
 
 #define cgiToRosPath "/home/ubuntu/pipes/CGItoROS"
 #define rosToCGIPath "/home/ubuntu/pipes/ROStoCGI"
-
+//This is a comment
 int main(void)
 {
   printf("%s%c%c\n",
