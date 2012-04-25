@@ -16,59 +16,7 @@
 
 
 int main(int argc, char **argv){
-  int cgiToRos;
-  if(access(cgiToRosPath,F_OK) == -1){
-    printf("mkfifo cgiToRos\n");
-    cgiToRos = mkfifo(cgiToRosPath, S_IFIFO | 0777);
-  }
-  /*int rosToCgi;
-  if(access(rosToCGIPath,F_OK) == -1){
-    rosToCgi = mkfifo(rosToCGIPath, 0777);
-    }*/
-
-  //while(1){ //open while
-  printf("opening fifo\n");
-  cgiToRos = open(cgiToRosPath, O_RDONLY);
-
-  // buffers for data from FIFO
-  double x_in,y_in,z_in,roll_in,pitch_in,yaw_in;
-  char link_in[32];
-
-  // read from FIFO
-  read(cgiToRos,&link_in,32);
-  read(cgiToRos,&x_in,sizeof(double));
-  read(cgiToRos,&y_in,sizeof(double));
-  read(cgiToRos,&z_in,sizeof(double));
-  read(cgiToRos,&roll_in,sizeof(double));
-  read(cgiToRos,&pitch_in,sizeof(double));
-  read(cgiToRos,&yaw_in,sizeof(double));
-
-  printf("got %s\n",link_in);
-  printf("got %lf\n",x_in);
-  printf("got %lf\n",y_in);
-  printf("got %lf\n",z_in);
-  printf("got %lf\n",roll_in);
-  printf("got %lf\n",pitch_in);
-  printf("got %lf\n",yaw_in);
-
-
-  /*if(cgiToRos == -1){
-    printf("\nunrecoverable error on pipe 1 #: %d\n", errno);
-  }
-  else{
-    printf("open succeeded: cgiToRos = %d\n",cgiToRos);
-    }*/
-
-  /*rosToCgi = open(rosToCGIPath, O_WRONLY);
-  if(rosToCgi == -1){
-    printf("\nunrecoverable error on pipe 2 #: %d\n", errno);
-    }*/
-
-  //if(/*rosToCgi == -1 || */cgiToRos == -1) return -1;
-
- 
-
-  
+  // init ROS stuff
   ros::init (argc, argv, "get_ik");
   ros::NodeHandle rh;
 
@@ -98,6 +46,70 @@ int main(int argc, char **argv){
   // define the service messages
   kinematics_msgs::GetPositionIK::Request  gpik_req;
   kinematics_msgs::GetPositionIK::Response gpik_res;
+
+
+
+  /////////////////////////////////////////////////////
+  // init FIFO stuff
+  int cgiToRos;
+  if(access(cgiToRosPath,F_OK) == -1){
+    printf("mkfifo cgiToRos\n");
+    cgiToRos = mkfifo(cgiToRosPath, S_IFIFO | 0777);
+  }
+  int rosToCgi;
+  if(access(rosToCGIPath,F_OK) == -1){
+    printf("mkfifo RosToCgi\n");
+    rosToCgi = mkfifo(rosToCGIPath, 0777);
+  }
+  /////////////////////////////////////////////////////
+
+
+  while(1){ //open while
+
+  printf("opening fifo\n");
+  cgiToRos = open(cgiToRosPath, O_RDONLY);
+
+  // buffers for data from FIFO
+  double x_in,y_in,z_in,roll_in,pitch_in,yaw_in;
+  char link_in[32];
+
+  // read from FIFO
+  read(cgiToRos,&link_in,32);
+  read(cgiToRos,&x_in,sizeof(double));
+  read(cgiToRos,&y_in,sizeof(double));
+  read(cgiToRos,&z_in,sizeof(double));
+  read(cgiToRos,&roll_in,sizeof(double));
+  read(cgiToRos,&pitch_in,sizeof(double));
+  read(cgiToRos,&yaw_in,sizeof(double));
+
+  close(cgiToRos);
+
+  printf("got %s\n",link_in);
+  printf("got %lf\n",x_in);
+  printf("got %lf\n",y_in);
+  printf("got %lf\n",z_in);
+  printf("got %lf\n",roll_in);
+  printf("got %lf\n",pitch_in);
+  printf("got %lf\n",yaw_in);
+
+
+  /*if(cgiToRos == -1){
+    printf("\nunrecoverable error on pipe 1 #: %d\n", errno);
+  }
+  else{
+    printf("open succeeded: cgiToRos = %d\n",cgiToRos);
+    }*/
+
+  /*rosToCgi = open(rosToCGIPath, O_WRONLY);
+  if(rosToCgi == -1){
+    printf("\nunrecoverable error on pipe 2 #: %d\n", errno);
+    }*/
+
+  //if(/*rosToCgi == -1 || */cgiToRos == -1) return -1;
+
+ 
+
+  
   gpik_req.timeout = ros::Duration(5.0);
   gpik_req.ik_request.ik_link_name = link_in;
 
@@ -118,16 +130,26 @@ int main(int argc, char **argv){
   }
   if(ik_client.call(gpik_req, gpik_res))
   {
-    if(gpik_res.error_code.val == gpik_res.error_code.SUCCESS)
-      for(unsigned int i=0; i < gpik_res.solution.joint_state.name.size(); i ++)
+    if(gpik_res.error_code.val == gpik_res.error_code.SUCCESS){
+      // open FIFO
+      rosToCgi = open(rosToCGIPath, O_WRONLY);
+
+      // return values back to CGI script
+      for(unsigned int i=0; i < gpik_res.solution.joint_state.name.size(); i ++){
         ROS_INFO("Joint: %s %f",gpik_res.solution.joint_state.name[i].c_str(),gpik_res.solution.joint_state.position[i]);
+	write(rosToCgi,&gpik_res.solution.joint_state.position[i],sizeof(double));
+      }
+
+      // close FIFO
+      close(rosToCgi);
+    }
     else
       ROS_ERROR("Inverse kinematics failed");
   }
   else
     ROS_ERROR("Inverse kinematics service call failed");
 
-  //} //close while
+  } //close while
 
 
   ros::shutdown();

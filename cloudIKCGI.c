@@ -9,19 +9,25 @@
 
 #define cgiToRosPath "/home/ubuntu/pipes/CGItoROS"
 #define rosToCGIPath "/home/ubuntu/pipes/ROStoCGI"
-//This is a comment
+
 int main(void)
 {
-  printf("%s%c%c\n",
+  printf("%s%c%c",
 	 "Content-Type:text/html;charset=iso-8859-1",13,10);
 
+  // query data from URL
   char *data;
+
+  // parameters to send to ROS
   double x, y, z, roll, pitch, yaw;
   char link[32];
 
+  // joint values received from ROS
+  double in1,in2,in3,in4,in5,in6,in7;
+
   data = getenv("QUERY_STRING");
 
-  printf("query: %s\n", data);
+  //printf("query: %s\n", data);
 
   int c = 0;
 
@@ -39,8 +45,8 @@ int main(void)
     }
   }
 
-  printf("%s\n",link);
-  printf("%s\n",data);
+  //printf("%s\n",link);
+  //printf("%s\n",data);
 
   if(data == NULL){
     printf("No data");
@@ -49,65 +55,68 @@ int main(void)
     printf("Data format error\n");
   }
   else{
-  printf("Opening pipes\n");
-
-    
-  int cgiToRos;
-    /*if(access(cgiToRosPath,F_OK) == -1){
-      cgiToRos = mkfifo(cgiToRosPath, 0777);
-      }*/
-    /*int rosToCgi;
-    if(access(rosToCGIPath,F_OK) == -1){
-      rosToCgi = mkfifo(rosToCGIPath, 0777);
-      }*/
+    //printf("Opening pipes\n");
     
 
+  ///////////////////////////////////////////////////////////////////////
+  // init CGItoROS FIFO stuff
+  int cgiToRos = 0;
+  if(access(cgiToRosPath,F_OK) == -1){
+    //printf("mkfifo cgiToRos\n");
+    cgiToRos = mkfifo(cgiToRosPath, S_IFIFO | 0777);
+  }    
+  if(cgiToRos == -1 )
+    printf("mkfifo failed on pipe 1\n");
+
+  //open CGItoROS
+  cgiToRos = open(cgiToRosPath, O_WRONLY);
+  if(cgiToRos == -1){
+    printf("\nunrecoverable error on pipe 1 #: %d\n", errno);
+    return -1;
+  }
+  //else printf("opened CGItoROS");
+
+  // write query values to ROS
+  write(cgiToRos,&link,32);
+  write(cgiToRos,&x,sizeof(double));
+  write(cgiToRos,&y,sizeof(double));
+  write(cgiToRos,&z,sizeof(double));
+  write(cgiToRos,&roll,sizeof(double));
+  write(cgiToRos,&pitch,sizeof(double));
+  write(cgiToRos,&yaw,sizeof(double));
+  
+  close(cgiToRos);
+  ///////////////////////////////////////////////////////////////
+  // init ROStoCGI FIFO stuff
+  int rosToCgi = 0;
+  if(access(rosToCGIPath,F_OK) == -1){
+    //printf("mkfifo RosToCgi\n");
+    rosToCgi = mkfifo(rosToCGIPath, S_IFIFO | 0777);
+  }
+  if(rosToCgi == -1)
+    printf("mkfifo failed on pipe 2\n");
+
+  // open ROStoCGI
+  rosToCgi = open(rosToCGIPath, O_RDONLY);
+  if(rosToCgi == -1){
+    printf("\nunrecoverable error on pipe 2 #: %d\n", errno);
+    return -1;
+  }
+  //else printf("opened ROStoCGI");
+   
+  read(rosToCgi,&in1,sizeof(double));
+  read(rosToCgi,&in2,sizeof(double));
+  read(rosToCgi,&in3,sizeof(double));
+  read(rosToCgi,&in4,sizeof(double));
+  read(rosToCgi,&in5,sizeof(double));
+  read(rosToCgi,&in6,sizeof(double));
+  read(rosToCgi,&in7,sizeof(double));
+  
+  close(rosToCgi);
     
-    //if(cgiToRos == -1 ){
-    //printf("Pipe 1 error");
-
-    //uncomment
-    cgiToRos = open(cgiToRosPath, O_WRONLY);
-      if(cgiToRos == -1){
-	printf("\nunrecoverable error on pipe 1 #: %d\n", errno);
-	//return -1;
-      }
-
-      // test
-      //printf("testing...\n");
-      //int num = write(cgiToRos,data,strlen(data));
-      //end test
-
-
-      //}
-      //if(rosToCgi == -1){
-      //printf("Pipe 2 error");
-      /*rosToCgi = open(rosToCGIPath, O_RDONLY);
-      if(rosToCgi == -1){
-	printf("\nunrecoverable error on pipe 2 #: %d\n", errno);
-	//return -1;
-	}*/
-      //}
-
-      //if(rosToCgi == -1 || cgiToRos == -1) return -1;
-
-
-      write(cgiToRos,&link,32);
-      write(cgiToRos,&x,sizeof(double));
-      write(cgiToRos,&y,sizeof(double));
-      write(cgiToRos,&z,sizeof(double));
-      write(cgiToRos,&roll,sizeof(double));
-      write(cgiToRos,&pitch,sizeof(double));
-      write(cgiToRos,&yaw,sizeof(double));
-
-    
-    
-      close(cgiToRos);
-    //close(rosToCgi);
-    
-    printf("\nPipes closed!");
-
-    printf("\n%lf %lf %lf %lf %lf %lf", x, y, z, roll, pitch, yaw);
+  //printf("\nPipes closed!");
+  
+  printf("\n%lf %lf %lf %lf %lf %lf %lf", in1, in2, in3, in4, in5, in6, in7);
 
     
   }
