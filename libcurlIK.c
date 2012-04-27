@@ -35,29 +35,38 @@ size_t writefunc(void *ptr, size_t size, size_t nmemb, struct string *s)
   return size*nmemb;
 }
 
-int main(void)
+int main(int argc, char* argv[])
 {
   CURL *curl;
   CURLcode res;
   double joints_in[7];
+
+  printf("%s\n",argv[1]);
+
+  int iter = atoi(argv[1]);
 
   curl = curl_easy_init();
   if(curl) {
     struct string s;
     init_string(&s);
 
-    curl_easy_setopt(curl, CURLOPT_URL, "http://50.17.72.223/cgi-bin/cloudIKCGI.cgi?link=r_wrist_roll_link&x=0.45&y=-0.188&z=0&roll=0&pitch=0&yaw=0");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://184.72.178.50/cgi-bin/cloudIKCGI.cgi?link=r_wrist_roll_link&x=0.45&y=-0.188&z=0&roll=0&pitch=0&yaw=0");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
-    res = curl_easy_perform(curl);
+    
+    int i;
+    for(i = 0; i < iter; i++){
+      res = curl_easy_perform(curl);
+    }
 
     sscanf(s.ptr,"%lf %lf %lf %lf %lf %lf %lf",&joints_in[0],&joints_in[1],&joints_in[2],&joints_in[3],&joints_in[4],&joints_in[5],&joints_in[6]);
     free(s.ptr);
 
-    int i;
     for(i = 0; i < 7; i++){
       printf("%lf\n",joints_in[i]);
     }
+
+    printf("serviced %d requests\n", iter);
 
     /* always cleanup */
     curl_easy_cleanup(curl);
